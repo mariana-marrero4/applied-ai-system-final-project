@@ -55,7 +55,6 @@ class TestTaskAddition:
         pet = Pet(
             name="Mochi",
             pet_type="dog",
-            breed="Husky",
             age=3
         )
         
@@ -95,7 +94,6 @@ class TestTaskAddition:
         pet = Pet(
             name="Luna",
             pet_type="cat",
-            breed="Siamese",
             age=2
         )
         
@@ -165,21 +163,19 @@ class TestPetNoDuplicates:
     """Tests for preventing duplicate pets in Owner"""
     
     def test_owner_cannot_add_duplicate_pet(self):
-        """Verify that Owner cannot add a pet with same name, type, breed, and age"""
+        """Verify that Owner cannot add a pet with same name, type, and age"""
         # Arrange
         owner = Owner(name="Jordan", available_time=120)
         
         pet1 = Pet(
             name="Mochi",
             pet_type="dog",
-            breed="Husky",
             age=3
         )
         
         pet2 = Pet(
             name="Mochi",
             pet_type="dog",
-            breed="Husky",
             age=3
         )
         
@@ -195,8 +191,8 @@ class TestPetNoDuplicates:
         # Arrange
         owner = Owner(name="Jordan", available_time=120)
         
-        pet1 = Pet(name="Mochi", pet_type="dog", breed="Husky", age=3)
-        pet2 = Pet(name="Luna", pet_type="cat", breed="Siamese", age=2)
+        pet1 = Pet(name="Mochi", pet_type="dog", age=3)
+        pet2 = Pet(name="Luna", pet_type="cat", age=2)
         
         # Act
         owner.add_pet(pet1)
@@ -264,6 +260,182 @@ class TestTaskIsFeasible:
             task.is_feasible(-10)
 
 
+class TestOwnerTimeSlots:
+    """Tests for Owner time slot functionality"""
+    
+    def test_owner_auto_assigns_time_slots_50_50(self):
+        """Verify that Owner auto-assigns time slots 50/50 if not provided"""
+        # Arrange & Act
+        owner = Owner(name="Jordan", available_time=120)
+        
+        # Assert - should auto-assign 50/50
+        assert owner.available_time_morning == 60, "Morning should be 50% of total (60 min)"
+        assert owner.available_time_afternoon == 60, "Afternoon should be 50% of total (60 min)"
+    
+    def test_owner_validates_time_slot_sum(self):
+        """Verify that Owner validates morning + afternoon = total"""
+        # This should raise ValueError because 50 + 40 != 120
+        with pytest.raises(ValueError, match="Time slot mismatch"):
+            Owner(
+                name="Jordan",
+                available_time=120,
+                available_time_morning=50,
+                available_time_afternoon=40
+            )
+    
+    def test_owner_accepts_valid_time_slots(self):
+        """Verify that Owner accepts valid time slot assignment"""
+        # Arrange & Act
+        owner = Owner(
+            name="Jordan",
+            available_time=120,
+            available_time_morning=80,
+            available_time_afternoon=40
+        )
+        
+        # Assert
+        assert owner.available_time_morning == 80
+        assert owner.available_time_afternoon == 40
+        assert owner.available_time == 120
+    
+    def test_owner_rejects_negative_morning_time(self):
+        """Verify that Owner rejects negative morning time"""
+        with pytest.raises(ValueError, match="Invalid available_time_morning"):
+            Owner(
+                name="Jordan",
+                available_time=120,
+                available_time_morning=-10,
+                available_time_afternoon=130
+            )
+    
+    def test_owner_rejects_negative_afternoon_time(self):
+        """Verify that Owner rejects negative afternoon time"""
+        with pytest.raises(ValueError, match="Invalid available_time_afternoon"):
+            Owner(
+                name="Jordan",
+                available_time=120,
+                available_time_morning=100,
+                available_time_afternoon=-20
+            )
+
+
+class TestSchedulerConflictDetection:
+    """Tests for improved Scheduler conflict detection"""
+    
+    def test_detect_conflicts_morning_slot_exceeded(self):
+        """Verify that conflicts are detected when morning slot is exceeded"""
+        # Arrange
+        owner = Owner(
+            name="Jordan",
+            available_time=120,
+            available_time_morning=30,
+            available_time_afternoon=90
+        )
+        pet = Pet(name="Mochi", pet_type="dog", age=3)
+        owner.add_pet(pet)
+        
+        # Create tasks that exceed morning slot
+        task1 = Task(
+            task_name="Morning Walk",
+            duration=20,
+            priority=1,
+            prefered_time="morning"
+        )
+        task2 = Task(
+            task_name="Morning Feeding",
+            duration=20,
+            priority=1,
+            prefered_time="morning"
+        )
+        
+        pet.add_task(task1)
+        pet.add_task(task2)
+        
+        # Act
+        scheduler = Scheduler(owner, pet)
+        scheduler.generate_plan()
+        conflicts = scheduler.detect_conflicts()
+        
+        # Assert - should detect morning slot conflict
+        assert len(conflicts) > 0, "Should detect morning slot conflict"
+        assert any("morning" in c.lower() for c in conflicts), "Conflict should mention morning"
+    
+    def test_detect_conflicts_afternoon_slot_exceeded(self):
+        """Verify that conflicts are detected when afternoon slot is exceeded"""
+        # Arrange
+        owner = Owner(
+            name="Jordan",
+            available_time=120,
+            available_time_morning=90,
+            available_time_afternoon=30
+        )
+        pet = Pet(name="Luna", pet_type="cat", age=2)
+        owner.add_pet(pet)
+        
+        # Create tasks that exceed afternoon slot
+        task1 = Task(
+            task_name="Afternoon Play",
+            duration=20,
+            priority=2,
+            prefered_time="afternoon"
+        )
+        task2 = Task(
+            task_name="Afternoon Grooming",
+            duration=20,
+            priority=2,
+            prefered_time="afternoon"
+        )
+        
+        pet.add_task(task1)
+        pet.add_task(task2)
+        
+        # Act
+        scheduler = Scheduler(owner, pet)
+        scheduler.generate_plan()
+        conflicts = scheduler.detect_conflicts()
+        
+        # Assert - should detect afternoon slot conflict
+        assert len(conflicts) > 0, "Should detect afternoon slot conflict"
+        assert any("afternoon" in c.lower() for c in conflicts), "Conflict should mention afternoon"
+    
+    def test_detect_conflicts_no_conflicts(self):
+        """Verify that no conflicts are detected when tasks fit properly"""
+        # Arrange
+        owner = Owner(
+            name="Jordan",
+            available_time=120,
+            available_time_morning=60,
+            available_time_afternoon=60
+        )
+        pet = Pet(name="Mochi", pet_type="dog", age=3)
+        owner.add_pet(pet)
+        
+        # Create tasks that fit perfectly
+        task1 = Task(
+            task_name="Morning Walk",
+            duration=30,
+            priority=1,
+            prefered_time="morning"
+        )
+        task2 = Task(
+            task_name="Afternoon Play",
+            duration=40,
+            priority=2,
+            prefered_time="afternoon"
+        )
+        
+        pet.add_task(task1)
+        pet.add_task(task2)
+        
+        # Act
+        scheduler = Scheduler(owner, pet)
+        scheduler.generate_plan()
+        conflicts = scheduler.detect_conflicts()
+        
+        # Assert - should have no conflicts
+        assert len(conflicts) == 0, "Should have no conflicts when tasks fit"
+
+
 class TestSchedulerPrioritySorting:
     """Tests for Scheduler priority sorting"""
     
@@ -271,7 +443,7 @@ class TestSchedulerPrioritySorting:
         """Verify that Scheduler sorts tasks with priority 1 first (highest priority)"""
         # Arrange
         owner = Owner(name="Jordan", available_time=120)
-        pet = Pet(name="Mochi", pet_type="dog", breed="Husky", age=3)
+        pet = Pet(name="Mochi", pet_type="dog", age=3)
         owner.add_pet(pet)
         
         task1 = Task(task_name="Priority 2", duration=20, priority=2)
@@ -283,7 +455,7 @@ class TestSchedulerPrioritySorting:
         pet.add_task(task3)
         
         # Act
-        scheduler = Scheduler(owner, pet, 120)
+        scheduler = Scheduler(owner, pet)
         sorted_tasks = scheduler.sort_by_priority()
         
         # Assert

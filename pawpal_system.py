@@ -200,6 +200,8 @@ class Owner:
     """Dataclass representing a pet owner"""
     name: str
     available_time: int
+    available_time_morning: int = 0  # Time available in morning (minutes)
+    available_time_afternoon: int = 0  # Time available in afternoon (minutes)
     preferences: dict = field(default_factory=dict)
     pets: List[Pet] = field(default_factory=list)
     
@@ -259,6 +261,26 @@ class Owner:
         if not isinstance(self.available_time, int) or self.available_time < 0:
             raise ValueError(f"Invalid available_time {self.available_time}. Must be a non-negative integer.")
         
+        # Validate time slot fields
+        if not isinstance(self.available_time_morning, int) or self.available_time_morning < 0:
+            raise ValueError(f"Invalid available_time_morning {self.available_time_morning}. Must be a non-negative integer.")
+        
+        if not isinstance(self.available_time_afternoon, int) or self.available_time_afternoon < 0:
+            raise ValueError(f"Invalid available_time_afternoon {self.available_time_afternoon}. Must be a non-negative integer.")
+        
+        # Validate that morning + afternoon = total (if both are set)
+        total_slot_time = self.available_time_morning + self.available_time_afternoon
+        if total_slot_time > 0 and total_slot_time != self.available_time:
+            raise ValueError(
+                f"Time slot mismatch: morning ({self.available_time_morning}) + afternoon ({self.available_time_afternoon}) "
+                f"= {total_slot_time}, but total available_time is {self.available_time}. They must be equal."
+            )
+        
+        # Auto-assign time slots if not set (50/50 split)
+        if self.available_time_morning == 0 and self.available_time_afternoon == 0:
+            self.available_time_morning = self.available_time // 2
+            self.available_time_afternoon = self.available_time - self.available_time_morning
+        
         # Validate preferences is a dict
         if not isinstance(self.preferences, dict):
             raise ValueError("Invalid preferences format. Please provide a valid preference.")
@@ -270,7 +292,7 @@ class Owner:
 class Scheduler:
     """Class for scheduling pet tasks"""
     
-    def __init__(self, owner: Owner, pet: Pet, available_time: int):
+    def __init__(self, owner: Owner, pet: Pet):
         self.owner = owner
         self.pet = pet
         self.available_time = owner.available_time
@@ -279,51 +301,145 @@ class Scheduler:
     def filter_by_constraints(self) -> List[Task]:
         """Filter tasks based on constraints
         
-        Only returns tasks that can fit in available time
+        Only returns tasks that:
+        - Are not already completed
+        - Can fit in available time
         
         Returns:
             List[Task]: Tasks that are feasible given time constraints
         """
         feasible_tasks = []
         for task in self.pet.get_tasks():
-            if task.is_feasible(self.available_time):
+            if not task.completed and task.is_feasible(self.available_time):
                 feasible_tasks.append(task)
         return feasible_tasks
     
     def sort_by_priority(self, tasks: List[Task] = None) -> List[Task]:
-        """Sort tasks by priority (highest priority first)
+        """Sort tasks by priority and preferred time
         
         Args:
             tasks (List[Task], optional): Tasks to sort. If None, uses filtered tasks.
                                          Priority 1 is highest, 3 is lowest.
+                                         Morning tasks come before afternoon tasks.
         
         Returns:
-            List[Task]: Tasks sorted by priority (ascending: 1 > 2 > 3)
+            List[Task]: Tasks sorted by priority first, then preferred time
         """
         if tasks is None:
             tasks = self.filter_by_constraints()
         
-        return sorted(tasks, key=lambda t: t.priority)
+        return sorted(tasks, key=lambda t: (
+            t.priority,
+            0 if t.prefered_time == "morning" else 1 if t.prefered_time == "afternoon" else 2
+        ))
+    
+    def sort_by_duration(self, tasks: List[Task] = None, ascending: bool = True) -> List[Task]:
+        """Sort tasks by duration (shortest or longest first)
+        
+        Args:
+            tasks (List[Task], optional): Tasks to sort. If None, uses filtered tasks.
+            ascending (bool): If True, sorts shortest first. If False, longest first.
+        
+        Returns:
+            List[Task]: Tasks sorted by duration
+        """
+        if tasks is None:
+            tasks = self.filter_by_constraints()
+        
+        return sorted(tasks, key=lambda t: t.duration, reverse=not ascending)
+    
+    def get_recurring_tasks(self, frequency: str = "daily") -> List[Task]:
+        """Get recurring tasks that are not completed
+        
+        Args:
+            frequency (str): "daily", "weekly", or "monthly". Default: "daily"
+        
+        Returns:
+            List[Task]: Tasks with specified frequency that haven't been completed
+        """
+        return [t for t in self.pet.get_tasks() 
+                if t.frequency == frequency and not t.completed]
+    
+    def detect_conflicts(self) -> List[str]:
+        """Detect scheduling conflicts in the current plan
+        
+        Checks for:
+        - Total duration exceeding available time
+        - Morning tasks exceeding morning time slot
+        - Afternoon tasks exceeding afternoon time slot
+        
+        Returns:
+            List[str]: List of conflict messages, empty if no conflicts
+        """
+        conflicts = []
+        
+        if not self.plan:
+            return conflicts
+        
+        # Get time slot availability from owner
+        slot_time_morning = self.owner.available_time_morning
+        slot_time_afternoon = self.owner.available_time_afternoon
+        
+        # Calculate tasks per time slot
+        morning_tasks = [t for t in self.plan if t.prefered_time == "morning"]
+        afternoon_tasks = [t for t in self.plan if t.prefered_time == "afternoon"]
+        no_pref_tasks = [t for t in self.plan if t.prefered_time is None]
+        
+        morning_duration = sum(t.duration for t in morning_tasks)
+        afternoon_duration = sum(t.duration for t in afternoon_tasks)
+        no_pref_duration = sum(t.duration for t in no_pref_tasks)
+        
+        # Check if morning tasks exceed morning slot
+        if morning_duration > slot_time_morning:
+            excess = morning_duration - slot_time_morning
+            conflicts.append(
+                f"⚠️ Morning tasks ({morning_duration} min) exceed morning slot ({slot_time_morning} min) by {excess} min. "
+                f"Consider moving {len(morning_tasks)} task(s) to afternoon or removing lower priority tasks."
+            )
+        
+        # Check if afternoon tasks exceed afternoon slot
+        if afternoon_duration > slot_time_afternoon:
+            excess = afternoon_duration - slot_time_afternoon
+            conflicts.append(
+                f"⚠️ Afternoon tasks ({afternoon_duration} min) exceed afternoon slot ({slot_time_afternoon} min) by {excess} min. "
+                f"Consider moving {len(afternoon_tasks)} task(s) to morning or removing lower priority tasks."
+            )
+        
+        # Check total duration vs available time
+        total = morning_duration + afternoon_duration + no_pref_duration
+        if total > self.available_time:
+            conflicts.append(
+                f"⚠️ Total duration ({total} min) exceeds available time ({self.available_time} min)"
+            )
+        
+        return conflicts
     
     def generate_plan(self) -> List[Task]:
         """Generate a schedule plan for tasks
         
         Strategy:
-        1. Filter tasks by feasibility constraints
-        2. Sort by priority (highest first)
-        3. Greedily add tasks until time runs out
+        1. Prioritize daily recurring tasks first
+        2. Filter remaining tasks by feasibility and completion status
+        3. Sort all tasks by priority, then preferred time
+        4. Greedily add tasks until time runs out
         
         Returns:
             List[Task]: Ordered list of tasks that fit in available time
         """
-        # Get feasible tasks sorted by priority
+        # Get daily recurring tasks first (they must happen)
+        recurring = self.get_recurring_tasks("daily")
+        
+        # Get all other feasible tasks sorted by priority and preferred time
         sorted_tasks = self.sort_by_priority()
+        
+        # Put recurring tasks at the front, then the rest (avoiding duplicates)
+        prioritized = recurring + [t for t in sorted_tasks if t not in recurring]
         
         # Greedily add tasks to plan until time runs out
         self.plan = []
         remaining_time = self.available_time
         
-        for task in sorted_tasks:
+        for task in prioritized:
             if task.duration <= remaining_time:
                 self.plan.append(task)
                 remaining_time -= task.duration
@@ -347,18 +463,31 @@ class Scheduler:
                 explanation += "\nTasks that do NOT fit:\n"
                 for task in all_tasks:
                     explanation += f"  • {task.task_name} ({task.duration} min, priority {task.priority}) - "
-                    if task.duration > self.available_time:
+                    if task.completed:
+                        explanation += "already completed\n"
+                    elif task.duration > self.available_time:
                         explanation += f"exceeds available time ({task.duration} > {self.available_time})\n"
                     else:
                         explanation += "not selected\n"
             return explanation
+        
+        # Check for conflicts
+        conflicts = self.detect_conflicts()
+        if conflicts:
+            explanation += "⚠️ Conflicts Detected:\n"
+            for conflict in conflicts:
+                explanation += f"  {conflict}\n"
+            explanation += "\n"
         
         # Explain included tasks
         explanation += f"✅ Scheduled Tasks ({len(self.plan)}):\n"
         total_duration = 0
         for i, task in enumerate(self.plan, 1):
             explanation += f"  {i}. {task.task_name}\n"
-            explanation += f"     Duration: {task.duration} min | Priority: {task.priority}\n"
+            explanation += f"     Duration: {task.duration} min | Priority: {task.priority}"
+            if task.frequency != "daily":
+                explanation += f" | Frequency: {task.frequency}"
+            explanation += "\n"
             if task.prefered_time:
                 explanation += f"     Preferred time: {task.prefered_time}\n"
             total_duration += task.duration
@@ -375,10 +504,17 @@ class Scheduler:
                 explanation += "lower priority than scheduled tasks\n"
         
         all_tasks = self.pet.get_tasks()
-        infeasible = [t for t in all_tasks if not t.is_feasible(self.available_time)]
+        infeasible = [t for t in all_tasks if not t.is_feasible(self.available_time) and not t.completed]
         if infeasible:
             explanation += f"\n⛔ Too long to fit ({len(infeasible)}):\n"
             for task in infeasible:
                 explanation += f"  • {task.task_name} ({task.duration} min) - exceeds available time\n"
+        
+        # Completed tasks
+        completed = [t for t in all_tasks if t.completed]
+        if completed:
+            explanation += f"\n✔️ Already Completed ({len(completed)}):\n"
+            for task in completed:
+                explanation += f"  • {task.task_name}\n"
         
         return explanation

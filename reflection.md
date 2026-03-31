@@ -12,7 +12,7 @@
 
     Owner class -> holds owner's name, available time, and preferences. This class is responsible of managing the pets.
 
-    Pet class -> holds pet's name, type of pet, breed of pet, and their age. This class is responsible of holding and managing the list of tasks.
+    Pet class -> holds pet's name, type of pet, and their age. This class is responsible of holding and managing the list of tasks.
 
     Task class -> reprsents a single care activity that holds name, duration in minutes, priority (1-3), and preffered time of day.
 

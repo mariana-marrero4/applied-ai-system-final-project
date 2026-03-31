@@ -26,19 +26,17 @@ def main():
     mochi = Pet(
         name="Mochi",
         pet_type="dog",
-        breed="Husky",
         age=3
     )
-    print(f"✅ Pet 1 created: {mochi.name} ({mochi.pet_type}, {mochi.breed})")
+    print(f"✅ Pet 1 created: {mochi.name} ({mochi.pet_type}, age {mochi.age})")
     
     # Create Pet 2: Luna (Cat)
     luna = Pet(
         name="Luna",
         pet_type="cat",
-        breed="Siamese",
         age=2
     )
-    print(f"✅ Pet 2 created: {luna.name} ({luna.pet_type}, {luna.breed})")
+    print(f"✅ Pet 2 created: {luna.name} ({luna.pet_type}, age {luna.age})")
     print()
     
     # Add pets to owner
