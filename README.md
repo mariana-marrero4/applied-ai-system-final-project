@@ -122,22 +122,22 @@ python -m pytest tests/test_pawpal.py -v
 Below are screenshots showing the key features of PawPal+:
 
 ### Owner Settings & Configuration
-<a href="/course_images/ai110/OwnersInfo.png" target="_blank"><img src='/course_images/ai110/OwnersInfo.png' title='Owner Information Settings' width='800' alt='Owner Information Settings' class='center-block' /></a>
+<a href="DEMO Pics/OwnersInfo.png" target="_blank"><img src='DEMO Pics/OwnersInfo.png' title='Owner Information Settings' width='800' alt='Owner Information Settings' class='center-block' /></a>
 
 *Owner Settings: Configure availability, time slots, and personal preferences*
 
 ### Pets & Tasks Management
-<a href="/course_images/ai110/PetsAndTasks.png" target="_blank"><img src='/course_images/ai110/PetsAndTasks.png' title='Pets and Tasks Management' width='800' alt='Pets and Tasks Management' class='center-block' /></a>
+<a href="DEMO Pics/PetsAndTasks.png" target="_blank"><img src='DEMO Pics/PetsAndTasks.png' title='Pets and Tasks Management' width='800' alt='Pets and Tasks Management' class='center-block' /></a>
 
 *Pets & Tasks: Add multiple pets, create tasks with priority and frequency settings*
 
 ### Task Handling & Editing
-<a href="/course_images/ai110/TaskHandeling.png" target="_blank"><img src='/course_images/ai110/TaskHandeling.png' title='Task Editing and Status Updates' width='800' alt='Task Editing and Status Updates' class='center-block' /></a>
+<a href="DEMO Pics/TaskHandeling.png" target="_blank"><img src='DEMO Pics/TaskHandeling.png' title='Task Editing and Status Updates' width='800' alt='Task Editing and Status Updates' class='center-block' /></a>
 
 *Task Management: Edit tasks, update status (pending → in-progress → completed), and auto-generate recurring tasks*
 
 ### Filtering & Schedule Generation
-<a href="/course_images/ai110/FilterAndScheduler.png" target="_blank"><img src='/course_images/ai110/FilterAndScheduler.png' title='Filtering and Schedule Generation' width='800' alt='Filtering and Schedule Generation' class='center-block' /></a>
+<a href="DEMO Pics/FilterAndScheduler.png" target="_blank"><img src='DEMO Pics/FilterAndScheduler.png' title='Filtering and Schedule Generation' width='800' alt='Filtering and Schedule Generation' class='center-block' /></a>
 
 *Filtering & Scheduling: Filter by status/time slot and generate intelligent daily schedules with conflict detection*
 
