@@ -1,10 +1,32 @@
 """
 Unit tests for PawPal+ System
 Tests for Task, Pet, Owner, and Scheduler classes
+
+Test Coverage:
+- Task validation and lifecycle
+- Pet management 
+- Owner scheduling
+- Scheduler filtering and sorting
+- Error handling and logging
+
+Confidence Level: HIGH - Tests cover critical paths and edge cases
 """
 
 import pytest
+import logging
+from datetime import datetime, timedelta
 from pawpal_system import Task, Pet, Owner, Scheduler
+
+# Configure logging for tests
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('tests/test_logs.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 
 class TestTaskStatusSystem:
@@ -708,6 +730,313 @@ class TestSchedulerFilterByTimeSlot:
         assert luna_morning[0].task_name == "Luna Morning"
 
 
+class TestErrorHandlingAndValidation:
+    """
+    Tests for error handling and validation across all system components.
+    These tests verify that the system gracefully handles invalid inputs.
+    """
+    
+    def test_task_update_with_invalid_name_type_returns_false(self):
+        """Verify that task.update() returns False when name is not a string"""
+        # Arrange
+        task = Task(task_name="Original", duration=30, priority=1)
+        
+        # Act - try to update with invalid name type
+        result = task.update(name=123)
+        
+        # Assert
+        assert result is False, "Should return False for invalid name type"
+        assert task.task_name == "Original", "Task name should remain unchanged"
+        logger.info("✓ Task name type validation works correctly")
+    
+    def test_task_update_with_invalid_duration_returns_false(self):
+        """Verify that task.update() returns False when duration is invalid"""
+        # Arrange
+        task = Task(task_name="Task", duration=30, priority=1)
+        
+        # Act - try to update with duration out of range
+        result = task.update(duration=500)  # Max is 480
+        
+        # Assert
+        assert result is False, "Should return False for duration out of range"
+        assert task.duration == 30, "Duration should remain unchanged"
+        logger.info("✓ Task duration validation works correctly")
+    
+    def test_task_update_with_invalid_priority_returns_false(self):
+        """Verify that task.update() returns False when priority is invalid"""
+        # Arrange
+        task = Task(task_name="Task", duration=30, priority=1)
+        
+        # Act - try to update with invalid priority
+        result = task.update(priority=5)
+        
+        # Assert
+        assert result is False, "Should return False for invalid priority"
+        assert task.priority == 1, "Priority should remain unchanged"
+        logger.info("✓ Task priority validation works correctly")
+    
+    def test_pet_add_non_task_raises_type_error(self):
+        """Verify that pet.add_task() raises TypeError for non-Task objects"""
+        # Arrange
+        pet = Pet(name="Mochi", pet_type="dog", age=3)
+        
+        # Act & Assert
+        with pytest.raises(TypeError, match="Expected Task instance"):
+            pet.add_task("not a task")
+        logger.info("✓ Pet task type validation works correctly")
+    
+    def test_pet_add_duplicate_task_id_raises_value_error(self):
+        """Verify that pet.add_task() raises ValueError for duplicate task IDs"""
+        # Arrange
+        pet = Pet(name="Mochi", pet_type="dog", age=3)
+        task1 = Task(task_name="Task", duration=30, priority=1)
+        
+        # Add the task
+        pet.add_task(task1)
+        
+        # Try to add same task again (same ID)
+        with pytest.raises(ValueError, match="already exists"):
+            pet.add_task(task1)
+        logger.info("✓ Pet duplicate task ID validation works correctly")
+    
+    def test_owner_add_non_pet_raises_type_error(self):
+        """Verify that owner.add_pet() raises TypeError for non-Pet objects"""
+        # Arrange
+        owner = Owner(name="Jordan", available_time=120)
+        
+        # Act & Assert
+        with pytest.raises(TypeError, match="Expected Pet instance"):
+            owner.add_pet("not a pet")
+        logger.info("✓ Owner pet type validation works correctly")
+    
+    def test_owner_set_negative_availability_raises_value_error(self):
+        """Verify that owner.set_availability() raises ValueError for negative time"""
+        # Arrange
+        owner = Owner(name="Jordan", available_time=120)
+        
+        # Act & Assert
+        with pytest.raises(ValueError, match="non-negative integer"):
+            owner.set_availability(-50)
+        logger.info("✓ Owner availability validation works correctly")
+    
+    def test_scheduler_filter_by_invalid_status_raises_value_error(self):
+        """Verify that scheduler.filter_by_status() raises ValueError for invalid status"""
+        # Arrange
+        owner = Owner(name="Jordan", available_time=120)
+        pet = Pet(name="Mochi", pet_type="dog", age=3)
+        owner.add_pet(pet)
+        scheduler = Scheduler(owner, pet)
+        
+        # Act & Assert
+        with pytest.raises(ValueError, match="Invalid status"):
+            scheduler.filter_by_status("invalid-status")
+        logger.info("✓ Scheduler status validation works correctly")
+
+
+class TestRecurringTaskGeneration:
+    """Tests for recurring task automatic generation"""
+    
+    def test_daily_task_next_occurrence_is_one_day_later(self):
+        """Verify that daily tasks create next occurrence one day later"""
+        # Arrange
+        original_date = datetime(2024, 1, 15, 9, 0)
+        task = Task(
+            task_name="Daily Walk",
+            duration=30,
+            priority=1,
+            frequency="daily",
+            due_date=original_date
+        )
+        
+        # Act
+        next_task = task.get_next_occurrence()
+        
+        # Assert
+        assert next_task.due_date == original_date + timedelta(days=1)
+        assert next_task.task_name == "Daily Walk"
+        assert next_task.is_recurring_copy is True
+        logger.info("✓ Daily recurring task generation works correctly")
+    
+    def test_weekly_task_next_occurrence_is_one_week_later(self):
+        """Verify that weekly tasks create next occurrence one week later"""
+        # Arrange
+        original_date = datetime(2024, 1, 15, 10, 0)
+        task = Task(
+            task_name="Weekly Grooming",
+            duration=60,
+            priority=2,
+            frequency="weekly",
+            due_date=original_date
+        )
+        
+        # Act
+        next_task = task.get_next_occurrence()
+        
+        # Assert
+        assert next_task.due_date == original_date + timedelta(weeks=1)
+        assert next_task.frequency == "weekly"
+        assert next_task.is_recurring_copy is True
+        logger.info("✓ Weekly recurring task generation works correctly")
+    
+    def test_monthly_task_next_occurrence_is_30_days_later(self):
+        """Verify that monthly tasks create next occurrence 30 days later"""
+        # Arrange
+        original_date = datetime(2024, 1, 15, 11, 0)
+        task = Task(
+            task_name="Monthly Vet Checkup",
+            duration=90,
+            priority=1,
+            frequency="monthly",
+            due_date=original_date
+        )
+        
+        # Act
+        next_task = task.get_next_occurrence()
+        
+        # Assert
+        assert next_task.due_date == original_date + timedelta(days=30)
+        assert next_task.frequency == "monthly"
+        logger.info("✓ Monthly recurring task generation works correctly")
+    
+    def test_completed_recurring_task_creates_next_in_pet_tasks(self):
+        """Verify that completing a recurring task creates next occurrence in pet's tasks"""
+        # Arrange
+        pet = Pet(name="Mochi", pet_type="dog", age=3)
+        task = Task(
+            task_name="Daily Walk",
+            duration=30,
+            priority=1,
+            frequency="daily"
+        )
+        pet.add_task(task)
+        
+        initial_count = len(pet.get_tasks())
+        
+        # Act - mark task as completed
+        next_task = pet.update_task_status(task.task_id, "completed")
+        
+        # Assert
+        assert next_task is not None, "Should create next occurrence"
+        assert len(pet.get_tasks()) == initial_count + 1, "Should have one more task"
+        assert pet.get_tasks()[-1].is_recurring_copy is True
+        logger.info("✓ Recurring task creation in pet tasks works correctly")
+
+
+class TestDataIntegrity:
+    """Tests for data integrity and state consistency"""
+    
+    def test_multiple_tasks_maintain_unique_ids(self):
+        """Verify that multiple tasks get unique IDs"""
+        # Arrange
+        task1 = Task(task_name="Task 1", duration=20, priority=1)
+        task2 = Task(task_name="Task 2", duration=30, priority=2)
+        task3 = Task(task_name="Task 3", duration=40, priority=3)
+        
+        # Act
+        ids = [task1.task_id, task2.task_id, task3.task_id]
+        
+        # Assert
+        assert len(ids) == len(set(ids)), "All task IDs should be unique"
+        logger.info("✓ Task ID uniqueness maintained correctly")
+    
+    def test_task_removal_actually_removes_from_pet(self):
+        """Verify that removing a task actually removes it from pet's task list"""
+        # Arrange
+        pet = Pet(name="Mochi", pet_type="dog", age=3)
+        task1 = Task(task_name="Task 1", duration=20, priority=1)
+        task2 = Task(task_name="Task 2", duration=30, priority=2)
+        
+        pet.add_task(task1)
+        pet.add_task(task2)
+        
+        # Act
+        success = pet.remove_task(task1.task_id)
+        
+        # Assert
+        assert success is True, "Should successfully remove task"
+        assert len(pet.get_tasks()) == 1
+        assert pet.get_tasks()[0].task_id == task2.task_id
+        logger.info("✓ Task removal works correctly")
+    
+    def test_pet_removal_from_owner(self):
+        """Verify that removing a pet actually removes it from owner's pet list"""
+        # Arrange
+        owner = Owner(name="Jordan", available_time=120)
+        pet1 = Pet(name="Mochi", pet_type="dog", age=3)
+        pet2 = Pet(name="Luna", pet_type="cat", age=2)
+        
+        owner.add_pet(pet1)
+        owner.add_pet(pet2)
+        
+        # Act
+        success = owner.remove_pet("Mochi")
+        
+        # Assert
+        assert success is True, "Should successfully remove pet"
+        assert len(owner.get_pets()) == 1
+        assert owner.get_pets()[0].name == "Luna"
+        logger.info("✓ Pet removal works correctly")
+
+
+class TestSystemIntegration:
+    """Integration tests for complete system workflows"""
+    
+    def test_complete_workflow_owner_to_task_creation(self):
+        """Test complete workflow: Owner → Pet → Task → Scheduler"""
+        # Arrange
+        owner = Owner(name="Jordan", available_time=120)
+        pet = Pet(name="Mochi", pet_type="dog", age=3)
+        owner.add_pet(pet)
+        
+        # Act - Create tasks
+        task1 = Task(task_name="Walk", duration=30, priority=1, prefered_time="morning")
+        task2 = Task(task_name="Feeding", duration=15, priority=1, prefered_time="morning")
+        task3 = Task(task_name="Play", duration=45, priority=2, prefered_time="afternoon")
+        
+        pet.add_task(task1)
+        pet.add_task(task2)
+        pet.add_task(task3)
+        
+        # Create scheduler
+        scheduler = Scheduler(owner, pet)
+        sorted_tasks = scheduler.sort_by_priority()
+        
+        # Assert
+        assert len(owner.get_pets()) == 1
+        assert len(pet.get_tasks()) == 3
+        assert sorted_tasks[0].priority == 1  # Walk
+        assert sorted_tasks[2].priority == 2  # Play
+        logger.info("✓ Complete workflow integration test passed")
+    
+    def test_concurrent_pet_management(self):
+        """Test managing multiple pets with multiple tasks"""
+        # Arrange
+        owner = Owner(name="Sarah", available_time=240)
+        
+        pet1 = Pet(name="Buddy", pet_type="dog", age=5)
+        pet2 = Pet(name="Whiskers", pet_type="cat", age=3)
+        
+        owner.add_pet(pet1)
+        owner.add_pet(pet2)
+        
+        # Add tasks to each pet
+        for pet in owner.get_pets():
+            for i in range(3):
+                task = Task(
+                    task_name=f"{pet.name} Task {i+1}",
+                    duration=20,
+                    priority=i+1
+                )
+                pet.add_task(task)
+        
+        # Act
+        total_tasks = sum(len(pet.get_tasks()) for pet in owner.get_pets())
+        
+        # Assert
+        assert total_tasks == 6, "Should have 6 total tasks"
+        logger.info("✓ Concurrent pet management test passed")
+
+
 if __name__ == "__main__":
     # Run tests with pytest
-    pytest.main([__file__, "-v"])
+    pytest.main([__file__, "-v", "--tb=short"])
