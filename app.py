@@ -1,5 +1,6 @@
 import streamlit as st
 from pawpal_system import Task, Pet, Owner, Scheduler
+from rag_summarizer import get_individual_pet_summary, get_global_pets_summary, test_api_connection
 
 st.set_page_config(page_title="PawPal+", page_icon="🐾", layout="centered")
 
@@ -625,3 +626,128 @@ if st.session_state.current_pet is not None:
         except Exception as e:
             st.error(f"❌ Unexpected error: {e}")
             st.info("Make sure all your tasks have valid durations, priorities, and preferred times.")
+
+    st.divider()
+
+    # ========== RAG SUMMARIES SECTION ==========
+    st.markdown("## 🤖 AI Pet Summaries (RAG)")
+    st.caption("Uses Google Gemini AI to generate intelligent summaries of your pet's care profile.")
+
+    # Show API connection status
+    with st.expander("⚙️ API Configuration", expanded=False):
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.info(
+                "📝 **Setup Required:**\n\n"
+                "1. Get your Google Gemini API key from: https://ai.google.dev/\n"
+                "2. Open `.env` file in the project root\n"
+                "3. Replace `tu_api_key_aqui_reemplaza_esto` with your actual key\n"
+                "4. Restart the app (Ctrl+C and `streamlit run app.py`)"
+            )
+        with col2:
+            if st.button("🔧 Test API Connection"):
+                with st.spinner("Testing..."):
+                    if test_api_connection():
+                        st.success("✅ API connection working!")
+                    else:
+                        st.error("❌ API connection failed. Check your API key in .env")
+
+    st.markdown("### 📊 Summary Types")
+
+    summary_type = st.radio(
+        "What summary do you want to generate?",
+        ["Individual Pet Summary", "Global Multi-Pet Overview"],
+        horizontal=True
+    )
+
+    if summary_type == "Individual Pet Summary":
+        st.markdown("#### 🐾 Individual Pet Analysis")
+        
+        if st.session_state.owner.pets:
+            pet_names = [pet.name for pet in st.session_state.owner.pets]
+            selected_pet_name = st.selectbox(
+                "Select a pet to analyze:",
+                pet_names,
+                key="summary_pet_select"
+            )
+            
+            selected_pet = next(
+                (p for p in st.session_state.owner.pets if p.name == selected_pet_name),
+                None
+            )
+            
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.write(f"**Pet:** {selected_pet.name} ({selected_pet.pet_type}, {selected_pet.age} years old)")
+                st.write(f"**Tasks:** {len(selected_pet.tasks)} | **Total duration:** {selected_pet.get_total_duration()} min")
+            
+            with col2:
+                if st.button("🔍 Generate Summary", key="gen_individual_summary"):
+                    st.session_state.generating_individual = True
+            
+            if st.session_state.get("generating_individual", False):
+                with st.spinner(f"🤖 Analyzing {selected_pet.name}'s care profile..."):
+                    try:
+                        summary = get_individual_pet_summary(selected_pet)
+                        st.success("✅ Summary generated!")
+                        st.markdown(summary)
+                        
+                        # Option to regenerate
+                        if st.button("🔄 Regenerate Summary", key="regen_individual"):
+                            st.session_state.generating_individual = True
+                            st.rerun()
+                    except ValueError as e:
+                        st.error(f"❌ {str(e)}")
+                    except Exception as e:
+                        st.error(f"❌ Error generating summary: {str(e)}")
+                        st.info("Make sure you have configured your Google API key in the .env file.")
+                    finally:
+                        st.session_state.generating_individual = False
+        else:
+            st.warning("⚠️ No pets yet. Add a pet first to generate summaries.")
+
+    else:  # Global Multi-Pet Overview
+        st.markdown("#### 🌍 Global Multi-Pet Analysis")
+        
+        if st.session_state.owner.pets:
+            # Show owner and pets overview
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Owner", st.session_state.owner.name)
+            with col2:
+                st.metric("Total Pets", len(st.session_state.owner.pets))
+            with col3:
+                total_tasks_all = sum(len(pet.tasks) for pet in st.session_state.owner.pets)
+                st.metric("Total Tasks", total_tasks_all)
+            
+            st.write(f"**Available time:** {st.session_state.owner.available_time} min/day "
+                    f"({st.session_state.owner.available_time_morning} morning + {st.session_state.owner.available_time_afternoon} afternoon)")
+            
+            # Pet list
+            with st.expander("🐾 Pets in System", expanded=False):
+                for pet in st.session_state.owner.pets:
+                    st.write(f"- **{pet.name}** ({pet.pet_type}, {pet.age} yo): {len(pet.tasks)} tasks ({pet.get_total_duration()} min)")
+            
+            if st.button("🔍 Generate Global Summary", key="gen_global_summary"):
+                st.session_state.generating_global = True
+            
+            if st.session_state.get("generating_global", False):
+                with st.spinner("🤖 Analyzing multi-pet workload and patterns..."):
+                    try:
+                        summary = get_global_pets_summary(st.session_state.owner)
+                        st.success("✅ Global summary generated!")
+                        st.markdown(summary)
+                        
+                        # Option to regenerate
+                        if st.button("🔄 Regenerate Global Summary", key="regen_global"):
+                            st.session_state.generating_global = True
+                            st.rerun()
+                    except ValueError as e:
+                        st.error(f"❌ {str(e)}")
+                    except Exception as e:
+                        st.error(f"❌ Error generating summary: {str(e)}")
+                        st.info("Make sure you have configured your Google API key in the .env file.")
+                    finally:
+                        st.session_state.generating_global = False
+        else:
+            st.warning("⚠️ No pets yet. Add at least 2 pets to see multi-pet analysis.")
