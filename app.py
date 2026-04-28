@@ -17,7 +17,7 @@ Use this app as your interactive demo once your backend classes/functions exist.
 """
 )
 
-with st.expander("Scenario", expanded=True):
+with st.expander("Scenario", expanded=False):
     st.markdown(
         """
 **PawPal+** is a pet care planning assistant. It helps a pet owner plan care tasks
@@ -27,7 +27,7 @@ You will design and implement the scheduling logic and connect it to this Stream
 """
     )
 
-with st.expander("What you need to build", expanded=True):
+with st.expander("What you need to build", expanded=False):
     st.markdown(
         """
 At minimum, your system should:
@@ -51,7 +51,7 @@ else:
 st.markdown("## 👤 Owner Settings")
 
 # Owner Info Section - Allow user to change their name (in expander)
-with st.expander("👤 Owner's Information", expanded=False):
+with st.expander("👤 Owner's Information", expanded=True):
     st.caption("Update your details here.")
     
     col1, col2 = st.columns([3, 1])
@@ -69,7 +69,7 @@ with st.expander("👤 Owner's Information", expanded=False):
                 st.error("Name cannot be empty!")
 
 # Owner Availability Section (in expander)
-with st.expander("⏰ Owner Availability", expanded=False):
+with st.expander("⏰ Owner Availability", expanded=True):
     st.caption("Set your total available time and how it's split between morning and afternoon.")
 
     col1, col2, col3 = st.columns(3)
@@ -636,21 +636,13 @@ if st.session_state.current_pet is not None:
     # Show API connection status
     with st.expander("⚙️ API Configuration", expanded=False):
         col1, col2 = st.columns([3, 1])
-        with col1:
-            st.info(
-                "📝 **Setup Required:**\n\n"
-                "1. Get your Google Gemini API key from: https://ai.google.dev/\n"
-                "2. Open `.env` file in the project root\n"
-                "3. Replace `tu_api_key_aqui_reemplaza_esto` with your actual key\n"
-                "4. Restart the app (Ctrl+C and `streamlit run app.py`)"
-            )
         with col2:
             if st.button("🔧 Test API Connection"):
                 with st.spinner("Testing..."):
                     if test_api_connection():
                         st.success("✅ API connection working!")
                     else:
-                        st.error("❌ API connection failed. Check your API key in .env")
+                        st.error("❌ API connection failed. Please check your configuration.")
 
     st.markdown("### 📊 Summary Types")
 

@@ -8,7 +8,7 @@ This matters because pet care has many repeated tasks with different timing need
 
 ## Architecture Overview
 
-<a href="UML/uml_final.png" target="_blank"><img src="UML/uml_final.png" title="PawPal+ UML Diagram" width="800" alt="PawPal+ UML Diagram" class="center-block" /></a>
+<a href="UML's/uml_final.png" target="_blank"><img src="UML's/uml_final.png" title="PawPal+ UML Diagram" width="800" alt="PawPal+ UML Diagram" class="center-block" /></a>
 
 This UML diagram summarizes the main classes and relationships: Owner aggregates Pets, each Pet aggregates Tasks, and the Scheduler coordinates task selection, conflict detection, and recurrence generation. It highlights key data flows (task creation → status transitions → recurring task generation) and separation of concerns between scheduling logic and persistence/validation.
 
@@ -76,4 +76,47 @@ This project taught me that real-world problems improve through iteration: my ta
 
 
 ## 📸 Sample Interactions
+
+### User Interface Overview
+
+<div style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;">
+  <img src="sample_assets/App_Tittle.png" width="350" alt="App Title">
+  <img src="sample_assets/Owner_Settings.png" width="350" alt="Owner Settings">
+</div>
+
+<div style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;">
+  <img src="sample_assets/Pet_Manager.png" width="350" alt="Pet Manager">
+  <img src="sample_assets/Task_Manager.png" width="350" alt="Task Manager">
+</div>
+
+<div style="display: flex; gap: 20px; justify-content: center;">
+  <img src="sample_assets/Filter_Analizer.png" width="350" alt="Filter Analyzer">
+</div>
+
+### Scheduler in Action
+
+<div style="display: flex; gap: 20px; justify-content: center;">
+  <img src="sample_assets/Normal_scheduler1.png" width="400" alt="Scheduler Example 1">
+  <img src="sample_assets/Normal_scheduler2.png" width="400" alt="Scheduler Example 2">
+</div>
+
+### AI Pet Summaries (RAG)
+
+**AI Configuration:**
+
+<img src="sample_assets/AI_Pet_Summaries.png" width="400" alt="AI Pet Summaries Configuration">
+
+**Individual Pet Summary:**
+
+<div style="display: flex; gap: 20px; justify-content: center;">
+  <img src="sample_assets/IndividualPetSummary1.png" width="400" alt="Individual Pet Summary 1">
+  <img src="sample_assets/IndividualPetSummary2.png" width="400" alt="Individual Pet Summary 2">
+</div>
+
+**Global Multi-Pet Summary:**
+
+<div style="display: flex; gap: 20px; justify-content: center;">
+  <img src="sample_assets/GlobalPetSummary1.png" width="400" alt="Global Pet Summary 1">
+  <img src="sample_assets/GlobalPetSummary2.png" width="400" alt="Global Pet Summary 2">
+</div>
 

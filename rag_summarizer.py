@@ -4,6 +4,7 @@ Uses Google Gemini API to generate intelligent pet care summaries.
 """
 
 import os
+import re
 from pathlib import Path
 
 try:
@@ -63,6 +64,56 @@ def _format_response(text: str) -> str:
     return text.strip()
 
 
+def _validate_summary(summary: str, actual_tasks: list) -> str:
+    """
+    Validate LLM-generated summary against actual task data to catch hallucinations.
+    Only removes lines with explicit frequency contradictions (e.g., "twice-daily feeding" when task is "daily").
+    
+    Args:
+        summary: Raw Gemini-generated summary
+        actual_tasks: List of actual Task objects from pet/owner
+        
+    Returns:
+        str: Validated summary with flagged hallucinations removed
+    """
+    if not actual_tasks:
+        return summary  # No tasks to validate against
+    
+    # Extract actual task names and frequencies
+    task_frequencies = {task.task_name: task.frequency for task in actual_tasks}
+    
+    lines = summary.split('\n')
+    validated_lines = []
+    
+    for line in lines:
+        # Keep section headers and empty lines
+        if line.startswith('####') or line.strip() == '':
+            validated_lines.append(line)
+            continue
+        
+        # Only flag hallucinations if line explicitly contradicts task frequency
+        # (e.g., "twice-daily feeding" when task is "daily")
+        should_remove = False
+        for task_name, actual_freq in task_frequencies.items():
+            if task_name.lower() in line.lower():
+                # Only remove if there's an explicit frequency contradiction
+                frequency_patterns = {
+                    'daily': r'\btwice.?daily\b|\btwice.?day\b',
+                    'weekly': r'\bdaily\b|\btwice.?daily\b',
+                    'monthly': r'\bdaily\b|\bweekly\b'
+                }
+                
+                if actual_freq in frequency_patterns:
+                    if re.search(frequency_patterns[actual_freq], line, re.IGNORECASE):
+                        should_remove = True
+                        break
+        
+        if not should_remove:
+            validated_lines.append(line)
+    
+    return '\n'.join(validated_lines)
+
+
 def get_individual_pet_summary(pet) -> str:
     """
     Generate a detailed summary for an individual pet using Gemini RAG.
@@ -120,7 +171,8 @@ Top 2-3 recommendations to improve pet health and care
     
     response = model.generate_content(prompt)
     formatted_response = _format_response(response.text)
-    return formatted_response
+    validated_response = _validate_summary(formatted_response, pet.tasks)
+    return validated_response
 
 
 def get_global_pets_summary(owner) -> str:
@@ -191,9 +243,15 @@ What care is missing or insufficient
 Top 2-3 optimization recommendations for better household pet care management
 """
     
+    # Collect all tasks from all pets for validation
+    all_tasks = []
+    for pet in owner.pets:
+        all_tasks.extend(pet.tasks)
+    
     response = model.generate_content(prompt)
     formatted_response = _format_response(response.text)
-    return formatted_response
+    validated_response = _validate_summary(formatted_response, all_tasks)
+    return validated_response
 
 
 def test_api_connection() -> bool:
