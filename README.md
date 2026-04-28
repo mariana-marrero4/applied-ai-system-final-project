@@ -8,7 +8,7 @@ This matters because pet care has many repeated tasks with different timing need
 
 ## Architecture Overview
 
-<a href="UML's/uml_final.png" target="_blank"><img src="UML's/uml_final.png" title="PawPal+ UML Diagram" width="800" alt="PawPal+ UML Diagram" class="center-block" /></a>
+<a href="UML's/UML.png" target="_blank"><img src="UML's/UML.png" title="PawPal+ UML Diagram" width="800" alt="PawPal+ UML Diagram" class="center-block" /></a>
 
 This UML diagram summarizes the main classes and relationships: Owner aggregates Pets, each Pet aggregates Tasks, and the Scheduler coordinates task selection, conflict detection, and recurrence generation. It highlights key data flows (task creation → status transitions → recurring task generation) and separation of concerns between scheduling logic and persistence/validation.
 
